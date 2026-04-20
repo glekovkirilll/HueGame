@@ -1,0 +1,323 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoomStatus {
+  LOBBY
+  STARTING
+  IN_GAME
+  FINISHED
+  ARCHIVED
+}
+
+enum GameStatus {
+  PENDING
+  ACTIVE
+  FINISHED
+}
+
+enum RoundState {
+  PREPARE_ROUND
+  CLUE_VISIBLE
+  VOTING_OPEN
+  ALL_CONFIRMED_PENDING_FINALIZE
+  REVEAL_VOTES
+  REVEAL_ZONE
+  ROUND_RESULTS
+  ROUND_TRANSITION
+  GAME_FINISHED
+}
+
+enum PlayerConnectionState {
+  CONNECTED
+  DISCONNECTED
+}
+
+enum PlayerLifecycleState {
+  ACTIVE
+  ELIMINATED
+}
+
+enum RoundRole {
+  ACTIVE_PLAYER
+  VOTER
+}
+
+enum PlacementStatus {
+  DRAFT
+  LOCKED
+  MISS
+  EDGE
+  NEAR
+  CENTER
+}
+
+enum SkippedReason {
+  ACTIVE_PLAYER
+  DISCONNECTED_DURING_VOTING
+  NO_PLACEMENTS_AT_CLOSE
+}
+
+enum PaletteAccessMode {
+  STRICT
+  RELAXED
+}
+
+enum QuorumStatus {
+  NOT_REQUIRED
+  BLOCKING
+  SATISFIED
+  EXCLUDED
+}
+
+enum SessionActorType {
+  HOST
+  PLAYER
+}
+
+enum SessionAuditEventType {
+  ROOM_CREATED
+  ROOM_JOINED
+  RECONNECT_ACCEPTED
+  RECONNECT_REJECTED
+  SOCKET_CONNECTED
+  SOCKET_DISCONNECTED
+  SESSION_RESTORED
+  NAME_CONFLICT_REJECTED
+}
+
+model Room {
+  id             String          @id @default(cuid())
+  code           String          @unique @db.VarChar(12)
+  status         RoomStatus      @default(LOBBY)
+  stateRevision  Int             @default(0)
+  currentGameId  String?         @unique
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  archivedAt     DateTime?
+  currentGame    Game?           @relation("RoomCurrentGame", fields: [currentGameId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  settings       RoomSettings?
+  hostSession    HostSession?
+  players        Player[]
+  games          Game[]          @relation("RoomGames")
+  paletteSnapshots PaletteSnapshot[]
+  auditEvents    SessionAuditEvent[]
+
+  @@index([status, createdAt])
+  @@index([status, updatedAt])
+}
+
+model RoomSettings {
+  roomId                        String            @id
+  roundsCount                   Int               @default(10)
+  startChips                    Int               @default(10)
+  showCellCodeToActivePlayer    Boolean           @default(true)
+  allowCategoryRepeats          Boolean           @default(false)
+  defaultLocale                 String            @default("ru") @db.VarChar(8)
+  paletteSeed                   String?           @db.VarChar(128)
+  playerPaletteAccessMode       PaletteAccessMode @default(STRICT)
+  allConfirmedWindowMs          Int               @default(10000)
+  hardVotingDeadlineMs          Int?
+  revealVotesMs                 Int               @default(3500)
+  revealZoneMs                  Int               @default(3500)
+  roundResultsMs                Int               @default(4500)
+  roundTransitionMs             Int               @default(2500)
+  createdAt                     DateTime          @default(now())
+  updatedAt                     DateTime          @updatedAt
+  room                          Room              @relation(fields: [roomId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+}
+
+model HostSession {
+  id               String                @id @default(cuid())
+  roomId           String                @unique
+  sessionTokenHash String                @unique @db.VarChar(255)
+  connectionState  PlayerConnectionState @default(CONNECTED)
+  lastSeenAt       DateTime              @default(now())
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  room             Room                  @relation(fields: [roomId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  auditEvents      SessionAuditEvent[]
+
+  @@index([connectionState, lastSeenAt])
+}
+
+model Player {
+  id                    String                @id @default(cuid())
+  roomId                String
+  name                  String                @db.VarChar(64)
+  nameNormalized        String                @db.VarChar(64)
+  sessionTokenHash      String                @unique @db.VarChar(255)
+  connectionState       PlayerConnectionState @default(CONNECTED)
+  lifecycleState        PlayerLifecycleState  @default(ACTIVE)
+  chips                 Int                   @default(0)
+  joinOrder             Int
+  canParticipateNextRound Boolean             @default(true)
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  lastSeenAt            DateTime              @default(now())
+  room                  Room                  @relation(fields: [roomId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  activeRounds          Round[]               @relation("RoundActivePlayer")
+  roundParticipants     RoundParticipant[]
+  placements            Placement[]
+  auditEvents           SessionAuditEvent[]
+
+  @@unique([roomId, nameNormalized])
+  @@unique([roomId, joinOrder])
+  @@index([roomId, lifecycleState, connectionState])
+  @@index([roomId, canParticipateNextRound, joinOrder])
+  @@index([roomId, lastSeenAt])
+}
+
+model Game {
+  id                  String      @id @default(cuid())
+  roomId              String
+  status              GameStatus  @default(PENDING)
+  roundsPlanned       Int
+  currentRoundNumber  Int         @default(0)
+  lastActiveJoinOrder Int?
+  roundStartBlockedAt DateTime?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  startedAt           DateTime?
+  finishedAt          DateTime?
+  room                Room        @relation("RoomGames", fields: [roomId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  currentForRoom      Room?       @relation("RoomCurrentGame")
+  rounds              Round[]
+  paletteSnapshot     PaletteSnapshot?
+
+  @@index([roomId, status, createdAt])
+  @@index([status, roundStartBlockedAt])
+}
+
+model Category {
+  id         String    @id @default(cuid())
+  slug       String    @unique @db.VarChar(128)
+  nameRu     String    @db.VarChar(128)
+  nameEn     String    @db.VarChar(128)
+  isActive   Boolean   @default(true)
+  sortOrder  Int       @default(0)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  rounds     Round[]
+
+  @@index([isActive, sortOrder])
+}
+
+model PaletteSnapshot {
+  id           String    @id @default(cuid())
+  roomId       String
+  gameId       String    @unique
+  seed         String    @db.VarChar(128)
+  generatorKey String    @default("oklch-v1") @db.VarChar(32)
+  cellsJson    Json
+  createdAt    DateTime  @default(now())
+  room         Room      @relation(fields: [roomId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  game         Game      @relation(fields: [gameId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  rounds       Round[]
+
+  @@index([roomId, createdAt])
+}
+
+model Round {
+  id                    String      @id @default(cuid())
+  gameId                String
+  number                Int
+  state                 RoundState  @default(PREPARE_ROUND)
+  stateRevision         Int         @default(0)
+  stateEnteredAt        DateTime    @default(now())
+  activePlayerId        String
+  categoryId            String
+  targetCellX           Int         @db.SmallInt
+  targetCellY           Int         @db.SmallInt
+  paletteSnapshotId     String
+  allConfirmedAt        DateTime?
+  phaseDeadlineAt       DateTime?
+  hardVotingDeadlineAt  DateTime?
+  votingClosedAt        DateTime?
+  resolvedAt            DateTime?
+  summaryJson           Json?
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+  game                  Game        @relation(fields: [gameId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  activePlayer          Player      @relation("RoundActivePlayer", fields: [activePlayerId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  category              Category    @relation(fields: [categoryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  paletteSnapshot       PaletteSnapshot @relation(fields: [paletteSnapshotId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  participants          RoundParticipant[]
+  placements            Placement[]
+
+  @@unique([gameId, number])
+  @@index([gameId, state, number])
+  @@index([activePlayerId, state])
+  @@index([state, phaseDeadlineAt])
+  @@index([state, hardVotingDeadlineAt])
+}
+
+model RoundParticipant {
+  roundId            String
+  playerId           String
+  role               RoundRole
+  mustBet            Boolean      @default(false)
+  chipsAtRoundStart  Int
+  placementVersion   Int          @default(0)
+  confirmVersion     Int?
+  confirmedAt        DateTime?
+  quorumStatus       QuorumStatus @default(NOT_REQUIRED)
+  skippedReason      SkippedReason?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  round              Round        @relation(fields: [roundId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  player             Player       @relation(fields: [playerId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([roundId, playerId])
+  @@index([roundId, role])
+  @@index([roundId, quorumStatus])
+  @@index([playerId, roundId])
+}
+
+model Placement {
+  id          String          @id @default(cuid())
+  roundId     String
+  playerId    String
+  x           Int             @db.SmallInt
+  y           Int             @db.SmallInt
+  status      PlacementStatus @default(DRAFT)
+  multiplier  Int?            @db.SmallInt
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  resolvedAt  DateTime?
+  round       Round           @relation(fields: [roundId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  player      Player          @relation(fields: [playerId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([roundId, playerId, x, y])
+  @@index([roundId, status])
+  @@index([playerId, roundId])
+  @@index([roundId, x, y])
+}
+
+model SessionAuditEvent {
+  id             String                @id @default(cuid())
+  roomId         String
+  playerId       String?
+  hostSessionId  String?
+  actorType      SessionActorType
+  eventType      SessionAuditEventType
+  ipHash         String?               @db.VarChar(128)
+  userAgent      String?               @db.VarChar(255)
+  metadata       Json?
+  createdAt      DateTime              @default(now())
+  room           Room                  @relation(fields: [roomId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  player         Player?               @relation(fields: [playerId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  hostSession    HostSession?          @relation(fields: [hostSessionId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([roomId, createdAt])
+  @@index([playerId, createdAt])
+  @@index([hostSessionId, createdAt])
+  @@index([actorType, eventType, createdAt])
+}
