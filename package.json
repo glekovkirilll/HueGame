@@ -1,0 +1,26 @@
+{
+  "name": "huegame",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20.11.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "backend:dev": "pnpm --filter @huegame/backend dev",
+    "backend:build": "pnpm --filter @huegame/backend build",
+    "frontend:dev": "pnpm --filter @huegame/frontend dev",
+    "frontend:build": "pnpm --filter @huegame/frontend build",
+    "db:generate": "pnpm --filter @huegame/database db:generate",
+    "db:migrate:dev": "pnpm --filter @huegame/database db:migrate:dev",
+    "db:migrate:deploy": "pnpm --filter @huegame/database db:migrate:deploy",
+    "db:seed": "pnpm --filter @huegame/database db:seed"
+  },
+  "devDependencies": {
+    "turbo": "^2.1.3"
+  }
+}

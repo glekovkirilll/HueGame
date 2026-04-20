@@ -5,6 +5,19 @@ This package locks the baseline database design for Architecture V2 and prepares
 ## Files
 
 - `prisma/schema.prisma` - main PostgreSQL + Prisma schema
+- `prisma/migrations/20260420_000001_init/migration.sql` - initial SQL migration scaffold
+- `prisma/seed.ts` - Prisma seed entrypoint
+- `prisma/categories.seed.ts` - production-like RU/EN category dataset
+- `.env.example` - local database connection template
+
+## Package Scripts
+
+Run from the repo root or from `packages/database`:
+
+- `pnpm db:generate` - generate Prisma client
+- `pnpm db:migrate:dev` - create/apply development migration
+- `pnpm db:migrate:deploy` - apply committed migrations
+- `pnpm db:seed` - populate categories catalog
 
 ## Model overview
 
@@ -70,6 +83,12 @@ Recommended approach:
 - store the source dataset in `categories.seed.ts` as a typed array;
 - separate the seed into a base pack and optional theme packs.
 
+Current implementation:
+
+- base pack contains 70 bilingual categories;
+- seed uses Prisma `upsert` to stay idempotent;
+- current scope covers the minimum starting groups from the architecture document.
+
 Minimum starting groups:
 
 - food and drinks;
@@ -119,3 +138,9 @@ If an admin panel for changing global defaults without redeploy is needed later,
 - Yes. Store a materialized `Round.summaryJson`.
 - The source of truth remains normalized: `Round + RoundParticipant + Placement`.
 - But `summaryJson` makes final screens, replay, and fast result fetches much simpler.
+
+## Implementation Notes
+
+- The committed SQL migration mirrors the current Prisma schema and also adds raw SQL coordinate checks for `Round.targetCellX`, `Round.targetCellY`, `Placement.x`, and `Placement.y`.
+- `@updatedAt` behavior is still modeled in Prisma; regular app writes through Prisma will keep `updatedAt` correct.
+- The next recommended code step after database bootstrap is adding shared `contracts` and `domain` packages for room lifecycle and round-state invariants.

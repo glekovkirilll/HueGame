@@ -1,0 +1,12 @@
+node_modules
+.pnpm-store
+.turbo
+.next
+dist
+coverage
+.git
+.gitignore
+README.local.md
+apps/*/node_modules
+packages/*/node_modules
+packages/database/.env

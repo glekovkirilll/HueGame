@@ -6,11 +6,41 @@ It is intended to be enough context to resume work on another PC without relying
 ## Current Status
 
 - Architecture V2 is accepted as the baseline design.
-- Database design package is already prepared in:
+- Database design package is prepared in:
   - `packages/database/prisma/schema.prisma`
   - `packages/database/README.md`
-- Backend code and frontend code are not started yet.
-- Prisma migrations and seed files are not created yet.
+- Monorepo workspace scaffold is created:
+  - `package.json`
+  - `pnpm-workspace.yaml`
+  - `turbo.json`
+- Shared packages are created:
+  - `packages/contracts`
+  - `packages/domain`
+- Next.js frontend scaffold is created:
+  - `apps/frontend/app/page.tsx`
+  - `apps/frontend/app/host/page.tsx`
+  - `apps/frontend/app/player/page.tsx`
+  - `apps/frontend/app/active-player/page.tsx`
+  - `apps/frontend/app/waiting/page.tsx`
+- NestJS backend scaffold is created:
+  - `apps/backend/src/app.module.ts`
+  - `apps/backend/src/modules/*`
+  - `apps/backend/src/modules/realtime-gateway/realtime.gateway.ts`
+  - `room.create` and `room.join` are wired through Prisma persistence
+  - `host.reconnect` and `room.reconnect` already return role-based snapshots
+  - `ProjectionBuilder` now distinguishes host, active-player, player, and joined-waiting variants
+  - `game.start` now creates persisted `Game`, `PaletteSnapshot`, `Round`, and `RoundParticipant` rows
+  - `round.advance` now persists the early round transitions up to `VOTING_OPEN`
+  - voting mutations now persist `Placement` rows and participant confirm state during `VOTING_OPEN`
+  - `round.advance` now also closes voting, computes reveal/result phases, and prepares the next round
+  - disconnect flows now mark host/player connection state and support deadline-driven server ticks
+  - automatic in-process deadline ticking is now scaffolded through the rounds recovery service
+- Initial Prisma migration and seed files are created:
+  - `packages/database/prisma/migrations/20260420_000001_init/migration.sql`
+  - `packages/database/prisma/seed.ts`
+  - `packages/database/prisma/categories.seed.ts`
+- Backend scaffold is started, but room/game/round logic is still in early implementation.
+- Frontend scaffold is started, but real backend integration and production UI flows are not finished yet.
 
 ## Product Goal
 
@@ -744,13 +774,13 @@ These assumptions are intentional and should stay visible:
 
 The next implementation steps should happen in this order:
 
-1. add `pnpm` workspace and package manifests;
-2. add Prisma migration scaffold and seed files in `packages/database`;
-3. add shared `contracts` and `domain` packages;
-4. create NestJS backend skeleton;
-5. create Next.js frontend skeleton;
-6. implement room/game/round orchestration;
-7. implement WebSocket projections and reconnect flows.
+1. install dependencies and run the database package locally;
+2. persist and project quorum-exclusion logic more fully for disconnected voters;
+3. replace in-process ticking with a more production-grade scheduler/runtime automation model;
+4. enrich snapshots with reveal-phase placement visibility and final round result data for each role;
+5. connect the Next.js frontend scaffold to real websocket flows and forms;
+6. add palette generation package and richer projection builders;
+7. add UI/i18n packages around the role-specific snapshots.
 
 ## Resume Checklist For Another PC
 
@@ -759,5 +789,6 @@ When resuming work on a new machine:
 1. read this file first;
 2. read `packages/database/prisma/schema.prisma`;
 3. read `packages/database/README.md`;
-4. continue with Prisma migrations and seed implementation;
-5. only then move on to backend skeleton.
+4. run database setup from the workspace root;
+5. review `packages/contracts` and `packages/domain`;
+6. only then move on to backend skeleton.
