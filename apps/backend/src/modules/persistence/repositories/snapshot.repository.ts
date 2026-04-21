@@ -31,6 +31,7 @@ export class SnapshotRepository {
         },
         currentGame: {
           include: {
+            paletteSnapshot: true,
             rounds: {
               orderBy: {
                 number: "desc"

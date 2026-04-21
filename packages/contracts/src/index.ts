@@ -18,73 +18,83 @@ export const BOARD_ROW_LABELS = [
   "O"
 ] as const;
 
-export enum RoomStatus {
-  LOBBY = "LOBBY",
-  STARTING = "STARTING",
-  IN_GAME = "IN_GAME",
-  FINISHED = "FINISHED",
-  ARCHIVED = "ARCHIVED"
-}
+export const RoomStatus = {
+  LOBBY: "LOBBY",
+  STARTING: "STARTING",
+  IN_GAME: "IN_GAME",
+  FINISHED: "FINISHED",
+  ARCHIVED: "ARCHIVED"
+} as const;
+export type RoomStatus = (typeof RoomStatus)[keyof typeof RoomStatus];
 
-export enum GameStatus {
-  PENDING = "PENDING",
-  ACTIVE = "ACTIVE",
-  FINISHED = "FINISHED"
-}
+export const GameStatus = {
+  PENDING: "PENDING",
+  ACTIVE: "ACTIVE",
+  FINISHED: "FINISHED"
+} as const;
+export type GameStatus = (typeof GameStatus)[keyof typeof GameStatus];
 
-export enum RoundState {
-  PREPARE_ROUND = "PREPARE_ROUND",
-  CLUE_VISIBLE = "CLUE_VISIBLE",
-  VOTING_OPEN = "VOTING_OPEN",
-  ALL_CONFIRMED_PENDING_FINALIZE = "ALL_CONFIRMED_PENDING_FINALIZE",
-  REVEAL_VOTES = "REVEAL_VOTES",
-  REVEAL_ZONE = "REVEAL_ZONE",
-  ROUND_RESULTS = "ROUND_RESULTS",
-  ROUND_TRANSITION = "ROUND_TRANSITION",
-  GAME_FINISHED = "GAME_FINISHED"
-}
+export const RoundState = {
+  PREPARE_ROUND: "PREPARE_ROUND",
+  CLUE_VISIBLE: "CLUE_VISIBLE",
+  VOTING_OPEN: "VOTING_OPEN",
+  ALL_CONFIRMED_PENDING_FINALIZE: "ALL_CONFIRMED_PENDING_FINALIZE",
+  REVEAL_VOTES: "REVEAL_VOTES",
+  REVEAL_ZONE: "REVEAL_ZONE",
+  ROUND_RESULTS: "ROUND_RESULTS",
+  ROUND_TRANSITION: "ROUND_TRANSITION",
+  GAME_FINISHED: "GAME_FINISHED"
+} as const;
+export type RoundState = (typeof RoundState)[keyof typeof RoundState];
 
-export enum PlayerConnectionState {
-  CONNECTED = "CONNECTED",
-  DISCONNECTED = "DISCONNECTED"
-}
+export const PlayerConnectionState = {
+  CONNECTED: "CONNECTED",
+  DISCONNECTED: "DISCONNECTED"
+} as const;
+export type PlayerConnectionState = (typeof PlayerConnectionState)[keyof typeof PlayerConnectionState];
 
-export enum PlayerLifecycleState {
-  ACTIVE = "ACTIVE",
-  ELIMINATED = "ELIMINATED"
-}
+export const PlayerLifecycleState = {
+  ACTIVE: "ACTIVE",
+  ELIMINATED: "ELIMINATED"
+} as const;
+export type PlayerLifecycleState = (typeof PlayerLifecycleState)[keyof typeof PlayerLifecycleState];
 
-export enum RoundRole {
-  ACTIVE_PLAYER = "ACTIVE_PLAYER",
-  VOTER = "VOTER"
-}
+export const RoundRole = {
+  ACTIVE_PLAYER: "ACTIVE_PLAYER",
+  VOTER: "VOTER"
+} as const;
+export type RoundRole = (typeof RoundRole)[keyof typeof RoundRole];
 
-export enum PlacementStatus {
-  DRAFT = "DRAFT",
-  LOCKED = "LOCKED",
-  MISS = "MISS",
-  EDGE = "EDGE",
-  NEAR = "NEAR",
-  CENTER = "CENTER"
-}
+export const PlacementStatus = {
+  DRAFT: "DRAFT",
+  LOCKED: "LOCKED",
+  MISS: "MISS",
+  EDGE: "EDGE",
+  NEAR: "NEAR",
+  CENTER: "CENTER"
+} as const;
+export type PlacementStatus = (typeof PlacementStatus)[keyof typeof PlacementStatus];
 
-export enum SkippedReason {
-  ACTIVE_PLAYER = "ACTIVE_PLAYER",
-  DISCONNECTED_DURING_VOTING = "DISCONNECTED_DURING_VOTING",
-  NO_PLACEMENTS_AT_CLOSE = "NO_PLACEMENTS_AT_CLOSE"
-}
+export const SkippedReason = {
+  ACTIVE_PLAYER: "ACTIVE_PLAYER",
+  DISCONNECTED_DURING_VOTING: "DISCONNECTED_DURING_VOTING",
+  NO_PLACEMENTS_AT_CLOSE: "NO_PLACEMENTS_AT_CLOSE"
+} as const;
+export type SkippedReason = (typeof SkippedReason)[keyof typeof SkippedReason];
 
-export enum PaletteAccessMode {
-  STRICT = "STRICT",
-  RELAXED = "RELAXED"
-}
+export const PaletteAccessMode = {
+  STRICT: "STRICT",
+  RELAXED: "RELAXED"
+} as const;
+export type PaletteAccessMode = (typeof PaletteAccessMode)[keyof typeof PaletteAccessMode];
 
-export enum QuorumStatus {
-  NOT_REQUIRED = "NOT_REQUIRED",
-  BLOCKING = "BLOCKING",
-  SATISFIED = "SATISFIED",
-  EXCLUDED = "EXCLUDED"
-}
+export const QuorumStatus = {
+  NOT_REQUIRED: "NOT_REQUIRED",
+  BLOCKING: "BLOCKING",
+  SATISFIED: "SATISFIED",
+  EXCLUDED: "EXCLUDED"
+} as const;
+export type QuorumStatus = (typeof QuorumStatus)[keyof typeof QuorumStatus];
 
 export type Coordinate = {
   x: number;
@@ -101,6 +111,8 @@ export type PlacementResolution = {
   y: number;
   status: PlacementStatus;
   multiplier: number;
+  playerId?: string;
+  playerName?: string;
 };
 
 export type PlayerRoundOutcome = {
@@ -149,11 +161,18 @@ export type RoundActionPermissions = {
   canUnconfirmBet: boolean;
 };
 
+export type PaletteCell = {
+  x: number;
+  y: number;
+  hex: string;
+};
+
 export type HostSnapshot = BaseRoomSnapshot & {
   role: "host";
   hostConnected: boolean;
   settings: RoomSettingsDefaults;
   activePlayerName: string | null;
+  paletteCells: PaletteCell[];
   roundStartBlockedAt: string | null;
   roundSummary: RoundSummary | null;
 };
@@ -184,6 +203,7 @@ export type ActivePlayerSnapshot = BaseRoomSnapshot & {
   joinOrder: number;
   chips: number;
   targetCellCode: string | null;
+  targetColorHex: string | null;
   categoryName: string | null;
   canRevealCellCode: boolean;
   roundSummary: RoundSummary | null;
@@ -211,12 +231,6 @@ export type RoomRoleSnapshot =
   | PlayerSnapshot
   | ActivePlayerSnapshot
   | JoinedWaitingSnapshot;
-
-export type PaletteCell = {
-  x: number;
-  y: number;
-  hex: string;
-};
 
 export type RoomSettingsDefaults = {
   roundsCount: number;

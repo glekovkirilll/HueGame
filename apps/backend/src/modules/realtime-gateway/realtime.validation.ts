@@ -1,3 +1,5 @@
+import { PaletteAccessMode, type RoomSettingsDefaults } from "@huegame/contracts";
+
 type PlainObject = Record<string, unknown>;
 type RoomCodePayload = {
   roomCode: string;
@@ -7,6 +9,7 @@ type RoomCodePayload = {
 
 type CreateRoomPayload = {
   hostName: string;
+  settings?: Partial<RoomSettingsDefaults>;
 };
 
 type PlaceChipPayload = {
@@ -41,6 +44,93 @@ function readNumber(payload: PlainObject, key: string): number {
   return value;
 }
 
+function readOptionalPositiveInteger(payload: PlainObject, key: string, min: number, max: number): number | undefined {
+  const value = payload[key];
+
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (typeof value !== "number" || !Number.isInteger(value) || value < min || value > max) {
+    throw new Error(`Field "${key}" must be an integer from ${min} to ${max}.`);
+  }
+
+  return value;
+}
+
+function readOptionalBoolean(payload: PlainObject, key: string): boolean | undefined {
+  const value = payload[key];
+
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (typeof value !== "boolean") {
+    throw new Error(`Field "${key}" must be a boolean.`);
+  }
+
+  return value;
+}
+
+function validateCreateRoomSettings(payload: unknown): Partial<RoomSettingsDefaults> | undefined {
+  if (payload === undefined) {
+    return undefined;
+  }
+
+  if (!isPlainObject(payload)) {
+    throw new Error('Field "settings" must be an object.');
+  }
+
+  const settings: Partial<RoomSettingsDefaults> = {};
+  const roundsCount = readOptionalPositiveInteger(payload, "roundsCount", 1, 50);
+  const startChips = readOptionalPositiveInteger(payload, "startChips", 1, 99);
+  const allConfirmedWindowMs = readOptionalPositiveInteger(payload, "allConfirmedWindowMs", 3_000, 60_000);
+
+  if (roundsCount !== undefined) {
+    settings.roundsCount = roundsCount;
+  }
+
+  if (startChips !== undefined) {
+    settings.startChips = startChips;
+  }
+
+  const showCellCodeToActivePlayer = readOptionalBoolean(payload, "showCellCodeToActivePlayer");
+  const allowCategoryRepeats = readOptionalBoolean(payload, "allowCategoryRepeats");
+
+  if (showCellCodeToActivePlayer !== undefined) {
+    settings.showCellCodeToActivePlayer = showCellCodeToActivePlayer;
+  }
+
+  if (allowCategoryRepeats !== undefined) {
+    settings.allowCategoryRepeats = allowCategoryRepeats;
+  }
+
+  if (payload.defaultLocale !== undefined) {
+    if (payload.defaultLocale !== "ru" && payload.defaultLocale !== "en") {
+      throw new Error('Field "defaultLocale" must be "ru" or "en".');
+    }
+
+    settings.defaultLocale = payload.defaultLocale;
+  }
+
+  if (payload.playerPaletteAccessMode !== undefined) {
+    if (
+      payload.playerPaletteAccessMode !== PaletteAccessMode.STRICT &&
+      payload.playerPaletteAccessMode !== PaletteAccessMode.RELAXED
+    ) {
+      throw new Error('Field "playerPaletteAccessMode" must be "STRICT" or "RELAXED".');
+    }
+
+    settings.playerPaletteAccessMode = payload.playerPaletteAccessMode;
+  }
+
+  if (allConfirmedWindowMs !== undefined) {
+    settings.allConfirmedWindowMs = allConfirmedWindowMs;
+  }
+
+  return Object.keys(settings).length > 0 ? settings : undefined;
+}
+
 export function validateRoomCodePayload(
   payload: unknown,
   requiresPlayerName = false,
@@ -70,7 +160,8 @@ export function validateCreateRoomPayload(payload: unknown) {
   }
 
   return {
-    hostName: readString(payload, "hostName")
+    hostName: readString(payload, "hostName"),
+    settings: validateCreateRoomSettings(payload.settings)
   } satisfies CreateRoomPayload;
 }
 

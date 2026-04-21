@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException } from "@nestjs/common";
+import { Injectable, InternalServerErrorException, NotFoundException, UnauthorizedException } from "@nestjs/common";
 
 import { type RoomSettingsDefaults } from "@huegame/contracts";
 
@@ -8,6 +8,11 @@ import { RoomRepository } from "../persistence/repositories/room.repository";
 export type CreateRoomCommand = {
   hostName: string;
   settings?: Partial<RoomSettingsDefaults>;
+};
+
+export type DeleteRoomCommand = {
+  roomCode: string;
+  sessionToken: string;
 };
 
 @Injectable()
@@ -45,6 +50,26 @@ export class RoomsService {
     }
 
     throw new InternalServerErrorException("Failed to allocate a unique room code.");
+  }
+
+  async deleteRoom(command: DeleteRoomCommand) {
+    const result = await this.roomRepository.deleteRoom(
+      command.roomCode.toUpperCase(),
+      this.authSessionService.hashSessionToken(command.sessionToken)
+    );
+
+    if (result.kind === "room-not-found") {
+      throw new NotFoundException("Room or host session not found.");
+    }
+
+    if (result.kind === "invalid-token") {
+      throw new UnauthorizedException("Invalid host session token.");
+    }
+
+    return {
+      roomCode: result.roomCode,
+      deleted: true
+    };
   }
 
   private generateRoomCode(): string {

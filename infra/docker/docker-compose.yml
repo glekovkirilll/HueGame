@@ -32,9 +32,6 @@ services:
 
   backend:
     image: huegame-app:local
-    build:
-      context: ../../
-      dockerfile: infra/docker/app.Dockerfile
     working_dir: /workspace
     command: ["sh", "/workspace/infra/docker/backend-start.sh"]
     environment:
@@ -51,9 +48,6 @@ services:
 
   frontend:
     image: huegame-app:local
-    build:
-      context: ../../
-      dockerfile: infra/docker/app.Dockerfile
     working_dir: /workspace
     command: ["sh", "/workspace/infra/docker/frontend-start.sh"]
     environment:

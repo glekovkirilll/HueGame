@@ -181,6 +181,9 @@ type SnapshotRoomShape = {
     status: GameStatus;
     currentRoundNumber: number;
     roundStartBlockedAt: Date | null;
+    paletteSnapshot: {
+      cellsJson: unknown;
+    } | null;
     rounds: Array<{
       id: string;
       activePlayerId: string;
@@ -225,12 +228,14 @@ function canRevealRoundSummary(room: SnapshotRoomShape): boolean {
     return false;
   }
 
-  return [
+  const summaryVisibleStates: readonly RoundState[] = [
     RoundState.REVEAL_ZONE,
     RoundState.ROUND_RESULTS,
     RoundState.ROUND_TRANSITION,
     RoundState.GAME_FINISHED
-  ].includes(currentRound.state) || room.status === RoomStatus.FINISHED;
+  ];
+
+  return summaryVisibleStates.includes(currentRound.state) || room.status === RoomStatus.FINISHED;
 }
 
 function getRoundSummary(room: SnapshotRoomShape, visible: boolean): RoundSummary | null {
@@ -276,11 +281,41 @@ function getCategoryName(
   return locale === "en" ? currentRound.category.nameEn : currentRound.category.nameRu;
 }
 
+function isPaletteCell(value: unknown): value is PaletteCell {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const cell = value as Partial<PaletteCell>;
+
+  return (
+    Number.isInteger(cell.x) &&
+    Number.isInteger(cell.y) &&
+    typeof cell.hex === "string" &&
+    /^#[0-9a-f]{6}$/i.test(cell.hex)
+  );
+}
+
+function getPaletteCells(room: SnapshotRoomShape): PaletteCell[] {
+  const cellsJson = room.currentGame?.paletteSnapshot?.cellsJson;
+
+  if (!Array.isArray(cellsJson)) {
+    return [];
+  }
+
+  return cellsJson.filter(isPaletteCell);
+}
+
+function getCellHex(cells: PaletteCell[], x: number, y: number): string | null {
+  return cells.find((cell) => cell.x === x && cell.y === y)?.hex ?? null;
+}
+
 export function buildHostSnapshotFromRoom(room: SnapshotRoomShape): HostSnapshot {
   const currentRound = getCurrentRound(room);
   const settings = room.settings ?? createRoomSettingsDefaults();
   const categoryName = currentRound ? getCategoryName(room, currentRound) : null;
   const roundSummary = getRoundSummary(room, true);
+  const paletteCells = getPaletteCells(room);
 
   return {
     role: "host",
@@ -309,6 +344,7 @@ export function buildHostSnapshotFromRoom(room: SnapshotRoomShape): HostSnapshot
       roundTransitionMs: settings.roundTransitionMs
     },
     activePlayerName: currentRound?.activePlayer.name ?? null,
+    paletteCells,
     roundStartBlockedAt: toIsoStringOrNull(room.currentGame?.roundStartBlockedAt),
     roundSummary
   };
@@ -382,6 +418,7 @@ export function buildActivePlayerSnapshotFromRoom(
   const currentRound = getCurrentRound(room);
   const settings = room.settings ?? createRoomSettingsDefaults();
   const roundSummary = getRoundSummary(room, canRevealRoundSummary(room));
+  const paletteCells = getPaletteCells(room);
 
   return {
     role: "active-player",
@@ -403,6 +440,9 @@ export function buildActivePlayerSnapshotFromRoom(
       currentRound && settings.showCellCodeToActivePlayer
         ? toCellCode(currentRound.targetCellX, currentRound.targetCellY)
         : null,
+    targetColorHex: currentRound
+      ? getCellHex(paletteCells, currentRound.targetCellX, currentRound.targetCellY)
+      : null,
     canRevealCellCode: settings.showCellCodeToActivePlayer,
     roundSummary
   };
@@ -503,43 +543,20 @@ function toHex(channel: number): string {
   return channel.toString(16).padStart(2, "0");
 }
 
-function hslToHex(hue: number, saturation: number, lightness: number): string {
-  const s = saturation / 100;
-  const l = lightness / 100;
-  const chroma = (1 - Math.abs(2 * l - 1)) * s;
-  const scaledHue = hue / 60;
-  const x = chroma * (1 - Math.abs((scaledHue % 2) - 1));
+function rgbToHex(color: { red: number; green: number; blue: number }): string {
+  return `#${toHex(Math.round(color.red))}${toHex(Math.round(color.green))}${toHex(Math.round(color.blue))}`;
+}
 
-  let red = 0;
-  let green = 0;
-  let blue = 0;
-
-  if (scaledHue >= 0 && scaledHue < 1) {
-    red = chroma;
-    green = x;
-  } else if (scaledHue < 2) {
-    red = x;
-    green = chroma;
-  } else if (scaledHue < 3) {
-    green = chroma;
-    blue = x;
-  } else if (scaledHue < 4) {
-    green = x;
-    blue = chroma;
-  } else if (scaledHue < 5) {
-    red = x;
-    blue = chroma;
-  } else {
-    red = chroma;
-    blue = x;
-  }
-
-  const match = l - chroma / 2;
-  const red255 = Math.round((red + match) * 255);
-  const green255 = Math.round((green + match) * 255);
-  const blue255 = Math.round((blue + match) * 255);
-
-  return `#${toHex(red255)}${toHex(green255)}${toHex(blue255)}`;
+function interpolateColor(
+  left: { red: number; green: number; blue: number },
+  right: { red: number; green: number; blue: number },
+  ratio: number
+) {
+  return {
+    red: left.red + (right.red - left.red) * ratio,
+    green: left.green + (right.green - left.green) * ratio,
+    blue: left.blue + (right.blue - left.blue) * ratio
+  };
 }
 
 export function buildPaletteSeed(roomCode: string, gameOrdinal: number, customSeed?: string | null): string {
@@ -551,25 +568,24 @@ export function buildPaletteSeed(roomCode: string, gameOrdinal: number, customSe
 }
 
 export function buildDeterministicPaletteCells(seed: string): PaletteCell[] {
-  const random = createSeededRandom(seed);
   const cells: PaletteCell[] = [];
-  const baseHue = Math.floor(random() * 360);
-  const hueSpread = 70 + Math.floor(random() * 60);
-  const saturationBase = 58 + Math.floor(random() * 12);
-  const lightnessBase = 48 + Math.floor(random() * 10);
+  const topLeft = { red: 225, green: 48, blue: 58 };
+  const topRight = { red: 246, green: 214, blue: 57 };
+  const bottomLeft = { red: 37, green: 91, blue: 216 };
+  const bottomRight = { red: 28, green: 172, blue: 93 };
 
   for (let y = 1; y <= BOARD_HEIGHT; y += 1) {
     for (let x = 1; x <= BOARD_WIDTH; x += 1) {
       const columnRatio = (x - 1) / (BOARD_WIDTH - 1);
       const rowRatio = (y - 1) / (BOARD_HEIGHT - 1);
-      const hue = (baseHue + Math.round(columnRatio * hueSpread) + Math.round(random() * 10)) % 360;
-      const saturation = Math.min(82, saturationBase + Math.round(rowRatio * 12) - Math.round(random() * 4));
-      const lightness = Math.max(30, Math.min(78, lightnessBase + Math.round((0.5 - rowRatio) * 10) + Math.round(random() * 6)));
+      const top = interpolateColor(topLeft, topRight, columnRatio);
+      const bottom = interpolateColor(bottomLeft, bottomRight, columnRatio);
+      const color = interpolateColor(top, bottom, rowRatio);
 
       cells.push({
         x,
         y,
-        hex: hslToHex(hue, saturation, lightness)
+        hex: rgbToHex(color)
       });
     }
   }
@@ -672,6 +688,7 @@ export function buildRoundSummary(input: {
   const resolvedPlacements = input.placements.map((placement) =>
     classifyPlacement(placement, input.target)
   );
+  const playersById = new Map(input.players.map((player) => [player.id, player]));
   const placementsByPlayer = input.placements.reduce<Record<string, PlacementResolution[]>>((accumulator, placement, index) => {
     const resolved = resolvedPlacements[index];
     accumulator[placement.playerId] ??= [];
@@ -684,6 +701,15 @@ export function buildRoundSummary(input: {
     targetCellCode: toCellCode(input.target.x, input.target.y),
     categoryName: input.categoryName,
     outcomes: buildRoundOutcomes(input.players, placementsByPlayer),
-    placements: resolvedPlacements
+    placements: resolvedPlacements.map((placement, index) => {
+      const sourcePlacement = input.placements[index];
+      const player = playersById.get(sourcePlacement.playerId);
+
+      return {
+        ...placement,
+        playerId: sourcePlacement.playerId,
+        playerName: player?.name
+      };
+    })
   };
 }

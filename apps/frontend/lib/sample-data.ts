@@ -13,6 +13,12 @@ import {
   RoomStatus
 } from "@huegame/contracts";
 
+import { buildDemoPalette, findPaletteHex } from "./board";
+
+const paletteCells = buildDemoPalette("demo:HUE123:game:1");
+const target = { x: 14, y: 7 };
+const targetColorHex = findPaletteHex(paletteCells, target.x, target.y);
+
 const summary: RoundSummary = {
   roundNumber: 3,
   targetCellCode: "G14",
@@ -21,32 +27,52 @@ const summary: RoundSummary = {
     {
       playerId: "p1",
       playerName: "Anna",
-      stake: 2,
-      payout: 3,
+      stake: 0,
+      payout: 0,
       newChips: 9,
       eliminated: false
     },
     {
       playerId: "p2",
       playerName: "Maks",
+      stake: 2,
+      payout: 3,
+      newChips: 9,
+      eliminated: false
+    },
+    {
+      playerId: "p3",
+      playerName: "Roma",
       stake: 1,
       payout: 0,
-      newChips: 4,
+      newChips: 6,
       eliminated: false
     }
   ],
   placements: [
     {
+      playerId: "p2",
+      playerName: "Maks",
       x: 14,
       y: 7,
       status: "CENTER" as PlacementStatus,
       multiplier: 3
     },
     {
+      playerId: "p2",
+      playerName: "Maks",
       x: 12,
       y: 7,
       status: "EDGE" as PlacementStatus,
       multiplier: 1
+    },
+    {
+      playerId: "p3",
+      playerName: "Roma",
+      x: 3,
+      y: 13,
+      status: "MISS" as PlacementStatus,
+      multiplier: 0
     }
   ]
 };
@@ -74,8 +100,16 @@ const base = {
       playerId: "p2",
       playerName: "Maks",
       joinOrder: 2,
-      chips: 4,
+      chips: 7,
       isConnected: true,
+      isEliminated: false
+    },
+    {
+      playerId: "p3",
+      playerName: "Roma",
+      joinOrder: 3,
+      chips: 6,
+      isConnected: false,
       isEliminated: false
     }
   ]
@@ -99,6 +133,7 @@ export const sampleHostSnapshot: HostSnapshot = {
     roundTransitionMs: 2500
   },
   activePlayerName: "Anna",
+  paletteCells,
   roundStartBlockedAt: null,
   roundSummary: summary
 };
@@ -109,13 +144,16 @@ export const samplePlayerSnapshot: PlayerSnapshot = {
   playerId: "p2",
   playerName: "Maks",
   joinOrder: 2,
-  chips: 4,
-  reservedChips: 1,
-  availableChips: 3,
+  chips: 7,
+  reservedChips: 2,
+  availableChips: 5,
   placementVersion: 5,
   confirmVersion: 5,
   isConfirmed: true,
-  placements: [{ x: 12, y: 7 }],
+  placements: [
+    { x: 14, y: 7 },
+    { x: 12, y: 7 }
+  ],
   canParticipateNextRound: true,
   isConnected: true,
   isEliminated: false,
@@ -125,7 +163,7 @@ export const samplePlayerSnapshot: PlayerSnapshot = {
     canConfirmBet: true,
     canUnconfirmBet: true
   },
-  roundSummary: summary
+  roundSummary: null
 };
 
 export const sampleActivePlayerSnapshot: ActivePlayerSnapshot = {
@@ -136,17 +174,18 @@ export const sampleActivePlayerSnapshot: ActivePlayerSnapshot = {
   joinOrder: 1,
   chips: 9,
   targetCellCode: "G14",
+  targetColorHex,
   categoryName: "Море и океан",
   canRevealCellCode: true,
-  roundSummary: summary
+  roundSummary: null
 };
 
 export const sampleJoinedWaitingSnapshot: JoinedWaitingSnapshot = {
   ...base,
   role: "joined-waiting",
-  playerId: "p3",
-  playerName: "Roma",
-  joinOrder: 3,
+  playerId: "p4",
+  playerName: "Lena",
+  joinOrder: 4,
   chips: 10,
   reservedChips: 0,
   availableChips: 10,
@@ -161,5 +200,5 @@ export const sampleJoinedWaitingSnapshot: JoinedWaitingSnapshot = {
     canConfirmBet: false,
     canUnconfirmBet: false
   },
-  roundSummary: summary
+  roundSummary: null
 };

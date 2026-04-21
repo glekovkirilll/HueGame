@@ -78,4 +78,33 @@ export class RoomRepository {
       }
     });
   }
+
+  async deleteRoom(roomCode: string, hostSessionTokenHash: string) {
+    return this.persistence.prisma.$transaction(async (tx) => {
+      const room = await tx.room.findUnique({
+        where: {
+          code: roomCode
+        },
+        include: {
+          hostSession: true
+        }
+      });
+
+      if (!room || !room.hostSession) {
+        return { kind: "room-not-found" as const };
+      }
+
+      if (room.hostSession.sessionTokenHash !== hostSessionTokenHash) {
+        return { kind: "invalid-token" as const };
+      }
+
+      await tx.room.delete({
+        where: {
+          id: room.id
+        }
+      });
+
+      return { kind: "deleted" as const, roomCode };
+    });
+  }
 }

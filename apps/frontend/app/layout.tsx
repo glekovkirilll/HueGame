@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "HueGame",
-  description: "Multiplayer browser game control surfaces for host and players."
+  description: "Realtime multiplayer browser game for host and mobile players."
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

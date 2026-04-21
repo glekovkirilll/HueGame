@@ -35,13 +35,24 @@ export class RoundRepository {
   async listDueRoomCodes(now: Date) {
     const rounds = await this.persistence.prisma.round.findMany({
       where: {
-        phaseDeadlineAt: {
-          lte: now
-        }
+        OR: [
+          {
+            phaseDeadlineAt: {
+              lte: now
+            }
+          },
+          {
+            hardVotingDeadlineAt: {
+              lte: now
+            }
+          }
+        ]
       },
       select: {
+        number: true,
         game: {
           select: {
+            currentRoundNumber: true,
             room: {
               select: {
                 code: true
@@ -52,7 +63,11 @@ export class RoundRepository {
       }
     });
 
-    return [...new Set(rounds.map((round) => round.game.room.code))];
+    return [...new Set(
+      rounds
+        .filter((round) => round.number === round.game.currentRoundNumber)
+        .map((round) => round.game.room.code)
+    )];
   }
 
   async advanceDueRound(roomCode: string) {
@@ -106,6 +121,13 @@ export class RoundRepository {
       }
 
       const now = new Date();
+      const isDueTransition =
+        (currentRound.phaseDeadlineAt !== null && currentRound.phaseDeadlineAt <= now) ||
+        (currentRound.hardVotingDeadlineAt !== null && currentRound.hardVotingDeadlineAt <= now);
+
+      if (hostSessionTokenHash === null && !isDueTransition) {
+        return { kind: "not-due" as const };
+      }
 
       switch (currentRound.state) {
         case RoundState.PREPARE_ROUND: {
@@ -113,7 +135,8 @@ export class RoundRepository {
             where: { id: currentRound.id },
             data: {
               state: RoundState.CLUE_VISIBLE,
-              stateEnteredAt: now
+              stateEnteredAt: now,
+              phaseDeadlineAt: now
             }
           });
 
@@ -195,7 +218,8 @@ export class RoundRepository {
             data: {
               state: RoundState.ALL_CONFIRMED_PENDING_FINALIZE,
               stateEnteredAt: now,
-              votingClosedAt: now
+              votingClosedAt: now,
+              phaseDeadlineAt: now
             }
           });
 
@@ -372,6 +396,13 @@ export class RoundRepository {
           );
 
           if (!activeCandidate || !room.currentGame.paletteSnapshot) {
+            await tx.round.update({
+              where: { id: currentRound.id },
+              data: {
+                phaseDeadlineAt: null
+              }
+            });
+
             await tx.game.update({
               where: { id: room.currentGame.id },
               data: {
@@ -409,9 +440,8 @@ export class RoundRepository {
           const categoryPool = room.settings.allowCategoryRepeats
             ? categories
             : categories.filter((category) => !usedCategoryIds.includes(category.id));
-          const selectedCategory = (categoryPool.length > 0 ? categoryPool : categories)[
-            (nextRoundNumber - 1) % (categoryPool.length > 0 ? categoryPool.length : categories.length)
-          ];
+          const finalCategoryPool = categoryPool.length > 0 ? categoryPool : categories;
+          const selectedCategory = finalCategoryPool[Math.floor(Math.random() * finalCategoryPool.length)];
 
           const targetCell = pickTargetCell(`${room.currentGame.paletteSnapshot.seed}:round:${nextRoundNumber}`);
           const eligibleParticipants = playersForNextRound.filter(
@@ -422,7 +452,7 @@ export class RoundRepository {
             data: {
               gameId: room.currentGame.id,
               number: nextRoundNumber,
-              state: RoundState.PREPARE_ROUND,
+              state: RoundState.VOTING_OPEN,
               stateEnteredAt: now,
               activePlayerId: activeCandidate.id,
               categoryId: selectedCategory.id,
@@ -442,6 +472,13 @@ export class RoundRepository {
             }
           });
 
+          await tx.round.update({
+            where: { id: currentRound.id },
+            data: {
+              phaseDeadlineAt: null
+            }
+          });
+
           await tx.game.update({
             where: { id: room.currentGame.id },
             data: {
@@ -451,7 +488,7 @@ export class RoundRepository {
             }
           });
 
-          return { kind: "advanced" as const, nextState: RoundState.PREPARE_ROUND };
+          return { kind: "advanced" as const, nextState: RoundState.VOTING_OPEN };
         }
 
         default:

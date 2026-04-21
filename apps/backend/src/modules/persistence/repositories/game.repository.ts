@@ -70,7 +70,7 @@ export class GameRepository {
         return { kind: "not-enough-round-ready-players" as const };
       }
 
-      const category = await tx.category.findFirst({
+      const categories = await tx.category.findMany({
         where: {
           isActive: true
         },
@@ -80,9 +80,11 @@ export class GameRepository {
         ]
       });
 
-      if (!category) {
+      if (categories.length === 0) {
         return { kind: "category-missing" as const };
       }
+
+      const category = categories[Math.floor(Math.random() * categories.length)];
 
       const now = new Date();
       const nextGameOrdinal = room.games.length + 1;
@@ -118,7 +120,7 @@ export class GameRepository {
         data: {
           gameId: game.id,
           number: 1,
-          state: RoundState.PREPARE_ROUND,
+          state: RoundState.VOTING_OPEN,
           stateEnteredAt: now,
           activePlayerId: activeCandidate.id,
           categoryId: category.id,
