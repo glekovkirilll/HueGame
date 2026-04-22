@@ -126,6 +126,12 @@ systemctl stop nginx apache2 2>/dev/null || true
 docker compose --env-file infra/docker/.env.vps -f infra/docker/docker-compose.vps.yml up -d --build
 ```
 
+If the VPS only has old `docker-compose` v1, use:
+
+```sh
+docker-compose -p huegame --env-file infra/docker/.env.vps -f infra/docker/docker-compose.vps.yml up -d --build
+```
+
 Open:
 
 ```text
@@ -143,6 +149,8 @@ docker compose --env-file infra/docker/.env.vps -f infra/docker/docker-compose.v
 docker compose --env-file infra/docker/.env.vps -f infra/docker/docker-compose.vps.yml restart
 docker compose --env-file infra/docker/.env.vps -f infra/docker/docker-compose.vps.yml down
 ```
+
+For old `docker-compose` v1, replace `docker compose` with `docker-compose -p huegame`.
 
 Rebuild after updates:
 

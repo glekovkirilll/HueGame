@@ -1,4 +1,4 @@
-name: huegame
+version: "2.4"
 
 services:
   postgres:
@@ -22,25 +22,14 @@ services:
       - "-c"
       - "max_connections=30"
 
-  backend-init:
+  backend:
     image: huegame-app:${APP_IMAGE_TAG:-vps}
     build:
       context: ../../
       dockerfile: infra/docker/app.Dockerfile
-    working_dir: /workspace
-    command: ["sh", "/workspace/infra/docker/backend-init.sh"]
-    environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-huegame}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-huegame}?schema=public
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: "no"
-
-  backend:
-    image: huegame-app:${APP_IMAGE_TAG:-vps}
     restart: unless-stopped
     working_dir: /workspace
-    command: ["sh", "/workspace/infra/docker/backend-start.sh"]
+    command: ["sh", "/workspace/infra/docker/backend-vps-start.sh"]
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-huegame}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-huegame}?schema=public
       PORT: 3001
@@ -50,8 +39,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      backend-init:
-        condition: service_completed_successfully
 
   frontend:
     image: huegame-app:${APP_IMAGE_TAG:-vps}
@@ -64,8 +51,7 @@ services:
     expose:
       - "3000"
     depends_on:
-      backend:
-        condition: service_started
+      - backend
 
   proxy:
     image: caddy:2-alpine
@@ -81,10 +67,8 @@ services:
       - caddy-data:/data
       - caddy-config:/config
     depends_on:
-      frontend:
-        condition: service_started
-      backend:
-        condition: service_started
+      - frontend
+      - backend
 
 volumes:
   postgres-data:
