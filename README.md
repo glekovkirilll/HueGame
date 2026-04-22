@@ -84,6 +84,8 @@ Notes:
 - `backend-init` runs `prisma migrate deploy` and `prisma db seed` before the backend starts;
 - frontend and backend currently run in workspace dev-runtime inside containers because shared packages are still source-first workspace packages rather than separately built production libraries.
 
+For a small Debian 12 VPS deployment path, see [Deploy to Debian 12 VPS](docs/vps-deploy-debian-12.md).
+
 ## Current Gaps
 
 The core monorepo structure, contracts, domain logic, Prisma package, backend orchestration, and frontend realtime shells are now in place.

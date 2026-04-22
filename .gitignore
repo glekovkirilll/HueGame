@@ -7,5 +7,6 @@ coverage/
 .env
 .env.local
 .env.*.local
+infra/docker/.env.vps
 packages/database/prisma/dev.db
 packages/database/generated/

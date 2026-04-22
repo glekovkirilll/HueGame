@@ -1,0 +1,92 @@
+name: huegame
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-huegame}
+      POSTGRES_USER: ${POSTGRES_USER:-huegame}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in infra/docker/.env.vps}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-huegame} -d ${POSTGRES_DB:-huegame}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=128MB"
+      - "-c"
+      - "max_connections=30"
+
+  backend-init:
+    image: huegame-app:${APP_IMAGE_TAG:-vps}
+    build:
+      context: ../../
+      dockerfile: infra/docker/app.Dockerfile
+    working_dir: /workspace
+    command: ["sh", "/workspace/infra/docker/backend-init.sh"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-huegame}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-huegame}?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  backend:
+    image: huegame-app:${APP_IMAGE_TAG:-vps}
+    restart: unless-stopped
+    working_dir: /workspace
+    command: ["sh", "/workspace/infra/docker/backend-start.sh"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-huegame}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-huegame}?schema=public
+      PORT: 3001
+      ROUND_TICK_INTERVAL_MS: ${ROUND_TICK_INTERVAL_MS:-1000}
+    expose:
+      - "3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      backend-init:
+        condition: service_completed_successfully
+
+  frontend:
+    image: huegame-app:${APP_IMAGE_TAG:-vps}
+    restart: unless-stopped
+    working_dir: /workspace
+    command: ["sh", "/workspace/infra/docker/frontend-start.sh"]
+    environment:
+      NEXT_PUBLIC_BACKEND_URL: ${NEXT_PUBLIC_BACKEND_URL:?Set NEXT_PUBLIC_BACKEND_URL in infra/docker/.env.vps}
+      NEXT_TELEMETRY_DISABLED: 1
+    expose:
+      - "3000"
+    depends_on:
+      backend:
+        condition: service_started
+
+  proxy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN in infra/docker/.env.vps}
+      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL in infra/docker/.env.vps}
+    ports:
+      - "${HTTP_HOST_PORT:-80}:80"
+      - "${HTTPS_HOST_PORT:-443}:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      frontend:
+        condition: service_started
+      backend:
+        condition: service_started
+
+volumes:
+  postgres-data:
+  caddy-data:
+  caddy-config:
