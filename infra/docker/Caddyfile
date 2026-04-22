@@ -1,8 +1,13 @@
 {
   email {$ACME_EMAIL}
+  auto_https disable_redirects
 }
 
-{$APP_DOMAIN} {
+http://{$APP_DOMAIN} {
+  redir https://{$APP_DOMAIN}:{$HTTPS_PORT}{uri} permanent
+}
+
+https://{$APP_DOMAIN}:{$HTTPS_PORT} {
   encode zstd gzip
 
   handle /socket.io* {

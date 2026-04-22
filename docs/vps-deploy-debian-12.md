@@ -98,7 +98,8 @@ Set:
 POSTGRES_PASSWORD=your-long-random-password
 APP_DOMAIN=hue.flipflop.site
 ACME_EMAIL=admin@flipflop.site
-NEXT_PUBLIC_BACKEND_URL=https://hue.flipflop.site
+NEXT_PUBLIC_BACKEND_URL=https://hue.flipflop.site:8443
+HTTPS_PORT=8443
 ```
 
 ## 7. Open ports
@@ -108,13 +109,13 @@ If you use `ufw`:
 ```sh
 ufw allow OpenSSH
 ufw allow 80/tcp
-ufw allow 443/tcp
+ufw allow 8443/tcp
 ufw enable
 ```
 
-If the VPS provider has a cloud firewall, also open TCP `80` and `443` there.
+If the VPS provider has a cloud firewall, also open TCP `80` and `8443` there.
 
-Ports `80` and `443` must be free on the server. If another web server is already installed, stop it before starting the stack:
+Ports `80` and `8443` must be free on the server. If another web server is already installed on port `80`, stop it before starting the stack:
 
 ```sh
 systemctl stop nginx apache2 2>/dev/null || true
@@ -135,10 +136,10 @@ docker-compose -p huegame --env-file infra/docker/.env.vps -f infra/docker/docke
 Open:
 
 ```text
-https://hue.flipflop.site
+https://hue.flipflop.site:8443
 ```
 
-Caddy will request and renew the HTTPS certificate automatically. DNS for `hue.flipflop.site` must point to this VPS before certificate issuance can succeed.
+Caddy will request and renew the HTTPS certificate automatically. DNS for `hue.flipflop.site` must point to this VPS and port `80` must be reachable before certificate issuance can succeed.
 
 ## Useful commands
 
