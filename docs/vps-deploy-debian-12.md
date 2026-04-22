@@ -102,6 +102,8 @@ NEXT_PUBLIC_BACKEND_URL=https://hue.flipflop.site:8443
 HTTPS_PORT=8443
 ```
 
+The backend start script URL-encodes `POSTGRES_PASSWORD` before creating `DATABASE_URL`, so strong passwords with symbols are supported.
+
 ## 7. Open ports
 
 If you use `ufw`:

@@ -31,7 +31,9 @@ services:
     working_dir: /workspace
     command: ["sh", "/workspace/infra/docker/backend-vps-start.sh"]
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-huegame}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-huegame}?schema=public
+      POSTGRES_DB: ${POSTGRES_DB:-huegame}
+      POSTGRES_USER: ${POSTGRES_USER:-huegame}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in infra/docker/.env.vps}
       PORT: 3001
       ROUND_TICK_INTERVAL_MS: ${ROUND_TICK_INTERVAL_MS:-1000}
     expose:
