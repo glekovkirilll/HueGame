@@ -51,7 +51,7 @@ services:
     working_dir: /workspace
     command: ["sh", "/workspace/infra/docker/frontend-start.sh"]
     environment:
-      NEXT_PUBLIC_BACKEND_URL: http://localhost:3001
+      NEXT_PUBLIC_BACKEND_URL: ${NEXT_PUBLIC_BACKEND_URL:-http://localhost:3001}
     ports:
       - "3000:3000"
     depends_on:
