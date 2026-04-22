@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { type FormEvent, useEffect, useState } from "react";
 
 import { getCopy } from "@/lib/i18n";
 import { getSavedHostRooms, type SavedHostRoom, useRoomStore } from "@/lib/room-store";
@@ -14,6 +15,7 @@ type DeleteRoomResponse = {
 export function HomeDashboard() {
   const { locale, setLocale, setDemoRole, runCommand, loading, error } = useRoomStore();
   const copy = getCopy(locale);
+  const router = useRouter();
   const [roomCode, setRoomCode] = useState("");
   const [playerName, setPlayerName] = useState("");
   const [hostRooms, setHostRooms] = useState<SavedHostRoom[]>([]);
@@ -40,6 +42,24 @@ export function HomeDashboard() {
     if (response?.deleted) {
       setHostRooms(getSavedHostRooms());
     }
+  }
+
+  function joinPlayerRoom(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const normalizedRoomCode = roomCode.trim().toUpperCase();
+    const normalizedPlayerName = playerName.trim();
+
+    if (!normalizedRoomCode || !normalizedPlayerName) {
+      return;
+    }
+
+    const params = new URLSearchParams({
+      room: normalizedRoomCode,
+      name: normalizedPlayerName
+    });
+
+    router.push(`/player?${params.toString()}`);
   }
 
   return (
@@ -110,31 +130,33 @@ export function HomeDashboard() {
             <span className="kicker">{copy.common.player}</span>
             <h1>{copy.home.playerTitle}</h1>
           </div>
-          <label className="field">
-            <span>{copy.common.roomCode}</span>
-            <input
-              maxLength={6}
-              onChange={(event) => setRoomCode(event.target.value.toUpperCase())}
-              placeholder={copy.home.roomCodePlaceholder}
-              value={roomCode}
-            />
-          </label>
-          <label className="field">
-            <span>{copy.common.name}</span>
-            <input
-              onChange={(event) => setPlayerName(event.target.value)}
-              placeholder={copy.home.playerNamePlaceholder}
-              value={playerName}
-            />
-          </label>
-          <div className="entry-actions">
-            <Link className="primary-button" href={`/player?room=${roomCode}&name=${encodeURIComponent(playerName)}`}>
-              {copy.home.playerAction}
-            </Link>
-            <Link className="ghost-button" href="/player" onClick={() => setDemoRole("player")}>
-              {copy.home.demoPlayer}
-            </Link>
-          </div>
+          <form className="entry-form" onSubmit={joinPlayerRoom}>
+            <label className="field">
+              <span>{copy.common.roomCode}</span>
+              <input
+                maxLength={6}
+                onChange={(event) => setRoomCode(event.target.value.toUpperCase())}
+                placeholder={copy.home.roomCodePlaceholder}
+                value={roomCode}
+              />
+            </label>
+            <label className="field">
+              <span>{copy.common.name}</span>
+              <input
+                onChange={(event) => setPlayerName(event.target.value)}
+                placeholder={copy.home.playerNamePlaceholder}
+                value={playerName}
+              />
+            </label>
+            <div className="entry-actions">
+              <button className="primary-button" disabled={!roomCode.trim() || !playerName.trim()} type="submit">
+                {copy.home.playerAction}
+              </button>
+              <Link className="ghost-button" href="/player" onClick={() => setDemoRole("player")}>
+                {copy.home.demoPlayer}
+              </Link>
+            </div>
+          </form>
         </article>
       </section>
     </main>

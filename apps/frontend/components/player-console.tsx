@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type {
   ActivePlayerSnapshot,
@@ -156,14 +156,52 @@ export function PlayerConsole({ demoRole }: PlayerConsoleProps) {
   const { snapshot, status, error, loading, locale, ensureRealtime, setLocale, setDemoRole, runCommand } = useRoomStore();
   const copy = getCopy(locale);
   const [roomCode, setRoomCode] = useState("");
-  const [playerName, setPlayerName] = useState("Maks");
+  const [playerName, setPlayerName] = useState("");
   const [sessionToken, setSessionToken] = useState("");
+  const autoJoinKeyRef = useRef<string | null>(null);
+
+  async function joinRoom(nextRoomCode = roomCode, nextPlayerName = playerName, nextSessionToken = activeSessionToken) {
+    const normalizedRoomCode = nextRoomCode.trim().toUpperCase();
+    const normalizedPlayerName = nextPlayerName.trim();
+
+    if (!normalizedRoomCode || !normalizedPlayerName) {
+      return;
+    }
+
+    setRoomCode(normalizedRoomCode);
+    setPlayerName(normalizedPlayerName);
+
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams({
+        room: normalizedRoomCode,
+        name: normalizedPlayerName
+      });
+
+      window.history.replaceState(null, "", `/player?${params.toString()}`);
+    }
+
+    const response = await runCommand<JoinRoomResponse>("room.join", {
+      roomCode: normalizedRoomCode,
+      playerName: normalizedPlayerName,
+      sessionToken: nextSessionToken || undefined
+    });
+
+    if (response?.sessionToken) {
+      setSessionToken(response.sessionToken);
+      await runCommand("room.reconnect", {
+        roomCode: response.roomCode,
+        playerName: response.playerName,
+        sessionToken: response.sessionToken
+      });
+    }
+  }
 
   useEffect(() => {
     ensureRealtime();
     const params = new URLSearchParams(window.location.search);
-    const queryRoomCode = params.get("room")?.toUpperCase();
-    const queryPlayerName = params.get("name");
+    const queryRoomCode = params.get("room")?.trim().toUpperCase();
+    const queryPlayerName = params.get("name")?.trim();
+    const savedToken = queryRoomCode && queryPlayerName ? getSavedPlayerToken(queryRoomCode, queryPlayerName) : "";
 
     if (queryRoomCode) {
       setRoomCode(queryRoomCode);
@@ -171,13 +209,18 @@ export function PlayerConsole({ demoRole }: PlayerConsoleProps) {
 
     if (queryPlayerName) {
       setPlayerName(queryPlayerName);
-      setSessionToken(queryRoomCode ? getSavedPlayerToken(queryRoomCode, queryPlayerName) : "");
+      setSessionToken(savedToken);
     }
 
-    if (!queryRoomCode) {
-      setDemoRole(demoRole);
+    if (queryRoomCode && queryPlayerName) {
+      const autoJoinKey = `${queryRoomCode}:${queryPlayerName}`;
+
+      if (autoJoinKeyRef.current !== autoJoinKey) {
+        autoJoinKeyRef.current = autoJoinKey;
+        void joinRoom(queryRoomCode, queryPlayerName, savedToken);
+      }
     }
-  }, [demoRole, ensureRealtime, setDemoRole]);
+  }, [ensureRealtime]);
 
   useEffect(() => {
     if (snapshot && "playerName" in snapshot) {
@@ -191,7 +234,8 @@ export function PlayerConsole({ demoRole }: PlayerConsoleProps) {
   const activeRoomCode = playerLike ? snapshot.roomCode : roomCode;
   const activePlayerName = playerLike ? snapshot.playerName : playerName;
   const activeSessionToken = sessionToken || getSavedPlayerToken(activeRoomCode, activePlayerName);
-  const isGameScreen = snapshot?.roomStatus === RoomStatus.IN_GAME || snapshot?.roomStatus === RoomStatus.FINISHED;
+  const isGameScreen =
+    playerLike && (snapshot.roomStatus === RoomStatus.IN_GAME || snapshot.roomStatus === RoomStatus.FINISHED);
 
   async function exitRoom() {
     if (!activeRoomCode || !activePlayerName || !activeSessionToken) {
@@ -272,20 +316,7 @@ export function PlayerConsole({ demoRole }: PlayerConsoleProps) {
               className="primary-button"
               disabled={loading || !roomCode || !playerName}
               onClick={async () => {
-                const response = await runCommand<JoinRoomResponse>("room.join", {
-                  roomCode,
-                  playerName,
-                  sessionToken: activeSessionToken || undefined
-                });
-
-                if (response?.sessionToken) {
-                  setSessionToken(response.sessionToken);
-                  await runCommand("room.reconnect", {
-                    roomCode: response.roomCode,
-                    playerName: response.playerName,
-                    sessionToken: response.sessionToken
-                  });
-                }
+                await joinRoom();
               }}
               type="button"
             >
@@ -323,7 +354,7 @@ export function PlayerConsole({ demoRole }: PlayerConsoleProps) {
         ) : null}
 
         <section className="player-main">
-          {snapshot ? (
+          {playerLike ? (
             <PlayerTopStats snapshot={snapshot} locale={locale} />
           ) : (
             <section className="surface empty-state">
@@ -384,7 +415,7 @@ export function PlayerConsole({ demoRole }: PlayerConsoleProps) {
         </section>
 
         <aside className="player-side">
-          {snapshot ? <Scoreboard entries={snapshot.scoreboard} locale={locale} /> : null}
+          {playerLike ? <Scoreboard entries={snapshot.scoreboard} locale={locale} /> : null}
         </aside>
       </section>
     </main>

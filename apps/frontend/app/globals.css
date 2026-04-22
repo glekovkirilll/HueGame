@@ -372,6 +372,11 @@ input:focus {
   flex-wrap: wrap;
 }
 
+.entry-form {
+  display: grid;
+  gap: 12px;
+}
+
 .action-stack {
   display: grid;
   margin-top: 14px;
