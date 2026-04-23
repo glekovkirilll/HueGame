@@ -403,6 +403,7 @@ export function PlayerConsole({ demoRole }: PlayerConsoleProps) {
                   sessionToken: activeSessionToken
                 })
               }
+              paletteCells={snapshot.paletteCells}
               permissions={snapshot.actionPermissions}
               placements={snapshot.placements}
               reservedChips={snapshot.reservedChips}

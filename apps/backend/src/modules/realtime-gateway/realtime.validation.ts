@@ -83,15 +83,18 @@ function validateCreateRoomSettings(payload: unknown): Partial<RoomSettingsDefau
 
   const settings: Partial<RoomSettingsDefaults> = {};
   const roundsCount = readOptionalPositiveInteger(payload, "roundsCount", 1, 50);
-  const startChips = readOptionalPositiveInteger(payload, "startChips", 1, 99);
   const allConfirmedWindowMs = readOptionalPositiveInteger(payload, "allConfirmedWindowMs", 3_000, 60_000);
 
   if (roundsCount !== undefined) {
     settings.roundsCount = roundsCount;
   }
 
-  if (startChips !== undefined) {
-    settings.startChips = startChips;
+  if (payload.startChips !== undefined) {
+    if (payload.startChips !== 0) {
+      throw new Error('Field "startChips" must be 0 in the current scoring mode.');
+    }
+
+    settings.startChips = 0;
   }
 
   const showCellCodeToActivePlayer = readOptionalBoolean(payload, "showCellCodeToActivePlayer");

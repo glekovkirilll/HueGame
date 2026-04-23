@@ -49,8 +49,8 @@ export class VotingService {
     return nextPlacementVersion(currentPlacementVersion);
   }
 
-  calculateAvailableBank(resolvedChips: number, reservedChips: number): number {
-    return calculateAvailableChips(resolvedChips, reservedChips);
+  calculateAvailableBank(reservedChips: number): number {
+    return calculateAvailableChips(reservedChips);
   }
 
   canConfirm(state: ParticipantConfirmationState): boolean {
@@ -141,7 +141,7 @@ export class VotingService {
     }
 
     if (result.kind === "no-available-chips") {
-      throw new ConflictException("No available chips remaining.");
+      throw new ConflictException("The round limit of five chips has been reached.");
     }
 
     if (result.kind === "confirm-rejected") {

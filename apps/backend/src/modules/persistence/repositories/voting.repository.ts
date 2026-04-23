@@ -8,6 +8,7 @@ import {
   RoundState,
   type Prisma
 } from "@huegame/database";
+import { MAX_PLACEMENT_CHIPS_PER_ROUND } from "@huegame/contracts";
 import {
   calculateAvailableChips,
   canConfirmBet,
@@ -67,7 +68,7 @@ export class VotingRepository {
         }
       });
 
-      if (calculateAvailableChips(context.player.chips, reservedChips) <= 0) {
+      if (reservedChips >= MAX_PLACEMENT_CHIPS_PER_ROUND || calculateAvailableChips(reservedChips) <= 0) {
         return { kind: "no-available-chips" as const };
       }
 

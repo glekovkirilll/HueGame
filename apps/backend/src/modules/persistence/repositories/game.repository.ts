@@ -63,7 +63,24 @@ export class GameRepository {
         return { kind: "game-already-active" as const };
       }
 
-      const activePlayers = room.players.filter((player) => player.lifecycleState === PlayerLifecycleState.ACTIVE);
+      await tx.player.updateMany({
+        where: {
+          roomId: room.id
+        },
+        data: {
+          chips: 0,
+          lifecycleState: PlayerLifecycleState.ACTIVE,
+          canParticipateNextRound: true
+        }
+      });
+
+      const resetPlayers = room.players.map((player) => ({
+        ...player,
+        chips: 0,
+        lifecycleState: PlayerLifecycleState.ACTIVE,
+        canParticipateNextRound: true
+      }));
+      const activePlayers = resetPlayers.filter((player) => player.lifecycleState === PlayerLifecycleState.ACTIVE);
       const activeCandidate = selectNextActivePlayer(activePlayers, null);
 
       if (!activeCandidate) {
@@ -112,7 +129,7 @@ export class GameRepository {
         }
       });
 
-      const eligibleParticipants = room.players.filter(
+      const eligibleParticipants = resetPlayers.filter(
         (player) => player.lifecycleState === PlayerLifecycleState.ACTIVE && player.canParticipateNextRound
       );
 

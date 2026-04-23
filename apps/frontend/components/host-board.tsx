@@ -51,10 +51,10 @@ export function HostBoard({ snapshot, locale }: HostBoardProps) {
           </span>
         </div>
         <div className="board-legend">
-          <span><i className="legend-dot center" />x3</span>
-          <span><i className="legend-dot near" />x2</span>
-          <span><i className="legend-dot edge" />x1</span>
-          <span><i className="legend-dot miss" />0</span>
+          <span><i className="legend-dot center" />{copy.result.center}</span>
+          <span><i className="legend-dot near" />{copy.result.near}</span>
+          <span><i className="legend-dot edge" />{copy.result.edge}</span>
+          <span><i className="legend-dot miss" />{copy.result.miss}</span>
         </div>
       </div>
 

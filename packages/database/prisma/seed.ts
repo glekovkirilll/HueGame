@@ -5,6 +5,19 @@ import { baseCategories } from "./categories.seed.js";
 const prisma = new PrismaClient();
 
 async function main() {
+  const activeSlugs = baseCategories.map((category) => category.slug);
+
+  await prisma.category.updateMany({
+    where: {
+      slug: {
+        notIn: activeSlugs
+      }
+    },
+    data: {
+      isActive: false
+    }
+  });
+
   for (const category of baseCategories) {
     await prisma.category.upsert({
       where: { slug: category.slug },

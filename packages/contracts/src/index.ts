@@ -167,6 +167,15 @@ export type PaletteCell = {
   hex: string;
 };
 
+export const MAX_PLACEMENT_CHIPS_PER_ROUND = 5;
+export const ROUND_REWARD_TABLE = [
+  { chips: 1, edge: 10, near: 20, center: 30 },
+  { chips: 2, edge: 8, near: 16, center: 24 },
+  { chips: 3, edge: 6, near: 12, center: 18 },
+  { chips: 4, edge: 4, near: 8, center: 12 },
+  { chips: 5, edge: 2, near: 4, center: 6 }
+] as const;
+
 export type HostSnapshot = BaseRoomSnapshot & {
   role: "host";
   hostConnected: boolean;
@@ -183,6 +192,7 @@ export type PlayerSnapshot = BaseRoomSnapshot & {
   playerName: string;
   joinOrder: number;
   chips: number;
+  paletteCells: PaletteCell[];
   reservedChips: number;
   availableChips: number;
   placementVersion: number | null;
@@ -215,6 +225,7 @@ export type JoinedWaitingSnapshot = BaseRoomSnapshot & {
   playerName: string;
   joinOrder: number;
   chips: number;
+  paletteCells: PaletteCell[];
   reservedChips: number;
   availableChips: number;
   placementVersion: number | null;
@@ -248,7 +259,7 @@ export type RoomSettingsDefaults = {
 
 export const DEFAULT_ROOM_SETTINGS: RoomSettingsDefaults = {
   roundsCount: 10,
-  startChips: 10,
+  startChips: 0,
   showCellCodeToActivePlayer: true,
   allowCategoryRepeats: false,
   defaultLocale: "ru",

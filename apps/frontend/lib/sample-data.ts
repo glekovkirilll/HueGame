@@ -8,6 +8,7 @@ import type {
 } from "@huegame/contracts";
 import {
   GameStatus,
+  MAX_PLACEMENT_CHIPS_PER_ROUND,
   PaletteAccessMode,
   RoundState,
   RoomStatus
@@ -28,16 +29,16 @@ const summary: RoundSummary = {
       playerId: "p1",
       playerName: "Anna",
       stake: 0,
-      payout: 0,
-      newChips: 9,
+      payout: 12,
+      newChips: 12,
       eliminated: false
     },
     {
       playerId: "p2",
       playerName: "Maks",
       stake: 2,
-      payout: 3,
-      newChips: 9,
+      payout: 24,
+      newChips: 36,
       eliminated: false
     },
     {
@@ -45,7 +46,7 @@ const summary: RoundSummary = {
       playerName: "Roma",
       stake: 1,
       payout: 0,
-      newChips: 6,
+      newChips: 8,
       eliminated: false
     }
   ],
@@ -92,7 +93,7 @@ const base = {
       playerId: "p1",
       playerName: "Anna",
       joinOrder: 1,
-      chips: 9,
+      chips: 12,
       isConnected: true,
       isEliminated: false
     },
@@ -100,7 +101,7 @@ const base = {
       playerId: "p2",
       playerName: "Maks",
       joinOrder: 2,
-      chips: 7,
+      chips: 36,
       isConnected: true,
       isEliminated: false
     },
@@ -108,7 +109,7 @@ const base = {
       playerId: "p3",
       playerName: "Roma",
       joinOrder: 3,
-      chips: 6,
+      chips: 8,
       isConnected: false,
       isEliminated: false
     }
@@ -121,7 +122,7 @@ export const sampleHostSnapshot: HostSnapshot = {
   hostConnected: true,
   settings: {
     roundsCount: 10,
-    startChips: 10,
+    startChips: 0,
     showCellCodeToActivePlayer: true,
     allowCategoryRepeats: false,
     defaultLocale: "ru",
@@ -144,9 +145,10 @@ export const samplePlayerSnapshot: PlayerSnapshot = {
   playerId: "p2",
   playerName: "Maks",
   joinOrder: 2,
-  chips: 7,
+  chips: 36,
+  paletteCells,
   reservedChips: 2,
-  availableChips: 5,
+  availableChips: MAX_PLACEMENT_CHIPS_PER_ROUND - 2,
   placementVersion: 5,
   confirmVersion: 5,
   isConfirmed: true,
@@ -172,7 +174,7 @@ export const sampleActivePlayerSnapshot: ActivePlayerSnapshot = {
   playerId: "p1",
   playerName: "Anna",
   joinOrder: 1,
-  chips: 9,
+  chips: 12,
   targetCellCode: "G14",
   targetColorHex,
   categoryName: "Море и океан",
@@ -186,9 +188,10 @@ export const sampleJoinedWaitingSnapshot: JoinedWaitingSnapshot = {
   playerId: "p4",
   playerName: "Lena",
   joinOrder: 4,
-  chips: 10,
+  chips: 0,
+  paletteCells,
   reservedChips: 0,
-  availableChips: 10,
+  availableChips: MAX_PLACEMENT_CHIPS_PER_ROUND,
   placementVersion: null,
   confirmVersion: null,
   isConfirmed: false,

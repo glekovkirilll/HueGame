@@ -117,7 +117,7 @@ model Room {
 model RoomSettings {
   roomId                        String            @id
   roundsCount                   Int               @default(10)
-  startChips                    Int               @default(10)
+  startChips                    Int               @default(0)
   showCellCodeToActivePlayer    Boolean           @default(true)
   allowCategoryRepeats          Boolean           @default(false)
   defaultLocale                 String            @default("ru") @db.VarChar(8)

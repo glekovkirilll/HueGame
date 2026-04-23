@@ -292,7 +292,10 @@ export class RoundRepository {
             categoryName: room.settings.defaultLocale === "en"
               ? refreshedRound.category.nameEn
               : refreshedRound.category.nameRu,
-            players: room.players.map((player) => ({
+            activePlayerId: currentRound.activePlayerId,
+            players: room.players
+              .filter((player) => currentRound.participants.some((participant) => participant.playerId === player.id))
+              .map((player) => ({
               id: player.id,
               name: player.name,
               chips: player.chips
@@ -308,8 +311,8 @@ export class RoundRepository {
             await tx.player.update({
               where: { id: outcome.playerId },
               data: {
-                chips: Math.max(0, outcome.newChips),
-                lifecycleState: outcome.eliminated ? PlayerLifecycleState.ELIMINATED : PlayerLifecycleState.ACTIVE
+                chips: outcome.newChips,
+                lifecycleState: PlayerLifecycleState.ACTIVE
               }
             });
           }

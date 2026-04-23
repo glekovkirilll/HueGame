@@ -235,18 +235,6 @@ export function HostConsole() {
                 }
               />
             </label>
-            <label className="field">
-              <span>{copy.host.startChips}</span>
-              <input
-                min={1}
-                max={99}
-                type="number"
-                value={settings.startChips}
-                onChange={(event) =>
-                  setSettings((current) => ({ ...current, startChips: Number(event.target.value) }))
-                }
-              />
-            </label>
           </div>
 
           <label className="toggle-row">
@@ -300,7 +288,6 @@ export function HostConsole() {
                   hostName,
                   settings: {
                     roundsCount: settings.roundsCount,
-                    startChips: settings.startChips,
                     showCellCodeToActivePlayer: settings.showCellCodeToActivePlayer,
                     allowCategoryRepeats: settings.allowCategoryRepeats,
                     defaultLocale: locale,

@@ -2,15 +2,22 @@
 
 import { useMemo, useState } from "react";
 
-import type { PlacementDraft, RoundActionPermissions } from "@huegame/contracts";
+import {
+  MAX_PLACEMENT_CHIPS_PER_ROUND,
+  ROUND_REWARD_TABLE,
+  type PaletteCell,
+  type PlacementDraft,
+  type RoundActionPermissions
+} from "@huegame/contracts";
 
-import { columns, rows, toCellCode } from "@/lib/board";
+import { columns, findPaletteHex, rows, toCellCode } from "@/lib/board";
 import type { Locale } from "@/lib/i18n";
 import { getCopy } from "@/lib/i18n";
 
 type CoordinatePickerProps = {
   locale: Locale;
   placements: PlacementDraft[];
+  paletteCells: PaletteCell[];
   availableChips: number;
   reservedChips: number;
   permissions: RoundActionPermissions;
@@ -25,6 +32,7 @@ type CoordinatePickerProps = {
 export function CoordinatePicker({
   locale,
   placements,
+  paletteCells,
   availableChips,
   reservedChips,
   permissions,
@@ -42,6 +50,7 @@ export function CoordinatePicker({
     [placements]
   );
   const selectedCode = toCellCode(selected.x, selected.y);
+  const selectedHex = findPaletteHex(paletteCells, selected.x, selected.y) ?? "#d7dde5";
   const selectedAlreadyPlaced = placementCodes.has(selectedCode);
   const canPlace = permissions.canPlaceChip && !selectedAlreadyPlaced && availableChips > 0;
   const canRemove = permissions.canRemoveChip && selectedAlreadyPlaced;
@@ -52,7 +61,7 @@ export function CoordinatePicker({
       <div className="surface-title-row">
         <div>
           <h2>{copy.player.chooseCell}</h2>
-          <span className="muted">{copy.player.noFullBoard}</span>
+          <span className="muted">{copy.player.paletteHint}</span>
         </div>
         <span className={isConfirmed ? "state-pill good" : "state-pill warn"}>
           {isConfirmed ? copy.player.confirmed : copy.player.notConfirmed}
@@ -62,7 +71,7 @@ export function CoordinatePicker({
       <div className="chip-economy">
         <div>
           <span>{copy.common.available}</span>
-          <strong>{availableChips}</strong>
+          <strong>{availableChips}/{MAX_PLACEMENT_CHIPS_PER_ROUND}</strong>
         </div>
         <div>
           <span>{copy.common.reserved}</span>
@@ -71,6 +80,14 @@ export function CoordinatePicker({
         <div>
           <span>{copy.common.selected}</span>
           <strong>{selectedCode}</strong>
+        </div>
+      </div>
+
+      <div className="selection-preview">
+        <div className="selection-swatch" style={{ backgroundColor: selectedHex }} />
+        <div>
+          <span>{copy.player.colorHex}</span>
+          <strong>{selectedHex.toUpperCase()}</strong>
         </div>
       </div>
 
@@ -101,30 +118,35 @@ export function CoordinatePicker({
         </div>
       </div>
 
-      <div className="mini-coordinate-grid">
-        {rows.flatMap((y) =>
-          columns.map((x) => {
-            const code = toCellCode(x, y);
-            const isPlaced = placementCodes.has(code);
-            const isSelected = selected.x === x && selected.y === y;
+      <div className="mini-grid-scroll">
+        <div className="mini-coordinate-grid">
+          {rows.flatMap((y) =>
+            columns.map((x) => {
+              const code = toCellCode(x, y);
+              const hex = findPaletteHex(paletteCells, x, y) ?? "#d7dde5";
+              const isPlaced = placementCodes.has(code);
+              const isSelected = selected.x === x && selected.y === y;
 
-            return (
-              <button
-                aria-label={code}
-                className={[
-                  "mini-cell",
-                  isPlaced ? "is-placed" : "",
-                  isSelected ? "is-selected" : ""
-                ].join(" ")}
-                key={code}
-                onClick={() => setSelected({ x, y })}
-                type="button"
-              >
-                {isPlaced ? "•" : ""}
-              </button>
-            );
-          })
-        )}
+              return (
+                <button
+                  aria-label={code}
+                  className={[
+                    "mini-cell",
+                    isPlaced ? "is-placed" : "",
+                    isSelected ? "is-selected" : ""
+                  ].join(" ")}
+                  key={code}
+                  onClick={() => setSelected({ x, y })}
+                  style={{ backgroundColor: hex }}
+                  title={code}
+                  type="button"
+                >
+                  {isPlaced ? <span className="mini-cell-dot" /> : null}
+                </button>
+              );
+            })
+          )}
+        </div>
       </div>
 
       <div className="action-row">
@@ -138,7 +160,7 @@ export function CoordinatePicker({
 
       <div className="selected-list" aria-label={copy.common.placements}>
         {placements.length === 0 ? (
-          <span className="muted">{copy.player.cannotBet}</span>
+          <span className="muted">{permissions.canPlaceChip ? copy.player.noPlacements : copy.player.cannotBet}</span>
         ) : (
           placements.map((placement) => (
             <button
@@ -151,6 +173,17 @@ export function CoordinatePicker({
             </button>
           ))
         )}
+      </div>
+
+      <div className="reward-guide">
+        {ROUND_REWARD_TABLE.map((rule) => (
+          <article className="reward-row" key={rule.chips}>
+            <strong>{rule.chips}</strong>
+            <span>{copy.player.zone5x5} {rule.edge}</span>
+            <span>{copy.player.zone3x3} {rule.near}</span>
+            <span>{copy.player.exactHit} {rule.center}</span>
+          </article>
+        ))}
       </div>
 
       <div className="action-row">

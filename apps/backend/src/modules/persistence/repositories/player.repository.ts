@@ -95,7 +95,7 @@ export class PlayerRepository {
           nameNormalized: input.normalizedName,
           sessionTokenHash: input.sessionTokenHash,
           connectionState: PlayerConnectionState.CONNECTED,
-          chips: room.settings?.startChips ?? 10,
+          chips: 0,
           joinOrder: nextJoinOrder,
           canParticipateNextRound: room.status !== RoomStatus.IN_GAME
         }

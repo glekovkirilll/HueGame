@@ -5,6 +5,7 @@ import {
   BOARD_WIDTH,
   DEFAULT_ROOM_SETTINGS,
   GameStatus,
+  MAX_PLACEMENT_CHIPS_PER_ROUND,
   type HostSnapshot,
   type JoinedWaitingSnapshot,
   PaletteAccessMode,
@@ -19,6 +20,7 @@ import {
   type RoundActionPermissions,
   RoundRole,
   RoundState,
+  ROUND_REWARD_TABLE,
   RoomStatus,
   type ScoreboardEntry
 } from "@huegame/contracts";
@@ -58,8 +60,8 @@ export function sanitizeDisplayName(name: string): string {
   return name.trim().replace(/\s+/g, " ");
 }
 
-export function calculateAvailableChips(resolvedChips: number, reservedChips: number): number {
-  return resolvedChips - reservedChips;
+export function calculateAvailableChips(reservedChips: number): number {
+  return Math.max(0, MAX_PLACEMENT_CHIPS_PER_ROUND - reservedChips);
 }
 
 export function canConfirmBet(state: ParticipantConfirmationState): boolean {
@@ -365,10 +367,11 @@ export function buildPlayerSnapshotFromRoom(
   const currentRound = getCurrentRound(room);
   const settings = room.settings ?? createRoomSettingsDefaults();
   const categoryName = currentRound ? getCategoryName(room, currentRound) : null;
+  const paletteCells = getPaletteCells(room);
   const participant = getParticipantState(room, player.id);
   const placements = getPlayerPlacements(room, player.id);
   const reservedChips = placements.length;
-  const availableChips = calculateAvailableChips(player.chips, reservedChips);
+  const availableChips = calculateAvailableChips(reservedChips);
   const confirmationState: ParticipantConfirmationState = {
     reservedChips,
     placementVersion: participant?.placementVersion ?? 0,
@@ -392,6 +395,7 @@ export function buildPlayerSnapshotFromRoom(
     playerName: player.name,
     joinOrder: player.joinOrder,
     chips: player.chips,
+    paletteCells,
     reservedChips,
     availableChips,
     placementVersion: participant?.placementVersion ?? null,
@@ -460,10 +464,11 @@ export function buildJoinedWaitingSnapshotFromRoom(
   const currentRound = getCurrentRound(room);
   const settings = room.settings ?? createRoomSettingsDefaults();
   const categoryName = currentRound ? getCategoryName(room, currentRound) : null;
+  const paletteCells = getPaletteCells(room);
   const participant = getParticipantState(room, player.id);
   const placements = getPlayerPlacements(room, player.id);
   const reservedChips = placements.length;
-  const availableChips = calculateAvailableChips(player.chips, reservedChips);
+  const availableChips = calculateAvailableChips(reservedChips);
   const confirmationState: ParticipantConfirmationState = {
     reservedChips,
     placementVersion: participant?.placementVersion ?? 0,
@@ -487,6 +492,7 @@ export function buildJoinedWaitingSnapshotFromRoom(
     playerName: player.name,
     joinOrder: player.joinOrder,
     chips: player.chips,
+    paletteCells,
     reservedChips,
     availableChips,
     placementVersion: participant?.placementVersion ?? null,
@@ -651,13 +657,23 @@ export function buildRoundOutcomes(
     name: string;
     chips: number;
   }>,
-  placementsByPlayer: Record<string, PlacementResolution[]>
+  placementsByPlayer: Record<string, PlacementResolution[]>,
+  activePlayerId: string | null
 ): PlayerRoundOutcome[] {
-  return players.map((player) => {
+  const baseOutcomes = players.map((player) => {
     const placements = placementsByPlayer[player.id] ?? [];
     const stake = placements.length;
-    const payout = placements.reduce((total, placement) => total + placement.multiplier, 0);
-    const newChips = player.chips - stake + payout;
+    const rewardRule = ROUND_REWARD_TABLE.find((rule) => rule.chips === stake);
+    const bestPlacementScore = placements.reduce((best, placement) => Math.max(best, placement.multiplier), 0);
+    const payout =
+      bestPlacementScore === 3
+        ? (rewardRule?.center ?? 0)
+        : bestPlacementScore === 2
+          ? (rewardRule?.near ?? 0)
+          : bestPlacementScore === 1
+            ? (rewardRule?.edge ?? 0)
+            : 0;
+    const newChips = player.chips + payout;
 
     return {
       playerId: player.id,
@@ -665,7 +681,29 @@ export function buildRoundOutcomes(
       stake,
       payout,
       newChips,
-      eliminated: newChips <= 0
+      eliminated: false
+    };
+  });
+
+  if (!activePlayerId) {
+    return baseOutcomes;
+  }
+
+  const voterOutcomes = baseOutcomes.filter((outcome) => outcome.playerId !== activePlayerId);
+  const activePlayerAveragePayout =
+    voterOutcomes.length === 0
+      ? 0
+      : Math.round(voterOutcomes.reduce((total, outcome) => total + outcome.payout, 0) / voterOutcomes.length);
+
+  return baseOutcomes.map((outcome) => {
+    if (outcome.playerId !== activePlayerId) {
+      return outcome;
+    }
+
+    return {
+      ...outcome,
+      payout: activePlayerAveragePayout,
+      newChips: outcome.newChips + activePlayerAveragePayout
     };
   });
 }
@@ -674,6 +712,7 @@ export function buildRoundSummary(input: {
   roundNumber: number;
   target: { x: number; y: number };
   categoryName: string | null;
+  activePlayerId: string | null;
   players: Array<{
     id: string;
     name: string;
@@ -700,7 +739,7 @@ export function buildRoundSummary(input: {
     roundNumber: input.roundNumber,
     targetCellCode: toCellCode(input.target.x, input.target.y),
     categoryName: input.categoryName,
-    outcomes: buildRoundOutcomes(input.players, placementsByPlayer),
+    outcomes: buildRoundOutcomes(input.players, placementsByPlayer, input.activePlayerId),
     placements: resolvedPlacements.map((placement, index) => {
       const sourcePlacement = input.placements[index];
       const player = playersById.get(sourcePlacement.playerId);
