@@ -4,10 +4,10 @@
 }
 
 http://{$APP_DOMAIN} {
-  redir https://{$APP_DOMAIN}:{$HTTPS_PORT}{uri} permanent
+  redir https://{$APP_DOMAIN}{uri} permanent
 }
 
-https://{$APP_DOMAIN}:{$HTTPS_PORT} {
+https://{$APP_DOMAIN} {
   encode zstd gzip
 
   handle /socket.io* {
